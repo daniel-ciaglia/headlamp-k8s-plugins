@@ -11,6 +11,7 @@ import { useTheme } from '@mui/material/styles';
 import  { useFluxControllerAvailableCheck, useFluxInstallCheck } from '../checkflux';
 import Table from '../common/Table';
 import Flux404 from '../checkflux';
+import { FLUX_CRDS } from '../helpers';
 
 export function Kustomizations() {
   const isKustomizationControllerAvailable = useFluxControllerAvailableCheck({
@@ -46,7 +47,7 @@ export function Kustomizations() {
 export function KustomizationListWrapper() {
   const isFluxInstalled = useFluxInstallCheck();
   const [kustomizations] = K8s.ResourceClasses.CustomResourceDefinition.useGet(
-    'kustomizations.kustomize.toolkit.fluxcd.io'
+    FLUX_CRDS.KUSTOMIZE
   );
 
   const kustomizationResourceClass = React.useMemo(() => {

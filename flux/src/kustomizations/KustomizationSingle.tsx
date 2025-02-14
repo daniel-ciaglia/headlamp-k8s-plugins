@@ -21,8 +21,8 @@ import {
 import RemainingTimeDisplay from '../common/RemainingTimeDisplay';
 import StatusLabel from '../common/StatusLabel';
 import Table from '../common/Table';
-import { getSourceNameAndType, ObjectEvents } from '../helpers/index';
-import { GetResourcesFromInventory, KUSTOMIZE_CRD } from '../inventory';
+import { getSourceNameAndType, ObjectEvents, FLUX_CRDS } from '../helpers';
+import { GetResourcesFromInventory } from '../inventory/index';
 
 function GetSourceCR(props: {
   name: string;
@@ -64,7 +64,7 @@ export default function FluxKustomizationDetailView() {
     namespace,
     fieldSelector: `involvedObject.name=${name},involvedObject.kind=${'Kustomization'}`,
   });
-  const [resource] = K8s.ResourceClasses.CustomResourceDefinition.useGet(KUSTOMIZE_CRD);
+  const [resource] = K8s.ResourceClasses.CustomResourceDefinition.useGet(FLUX_CRDS.KUSTOMIZE);
 
   return (
     <>

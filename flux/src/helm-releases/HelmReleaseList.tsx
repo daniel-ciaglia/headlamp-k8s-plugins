@@ -11,6 +11,7 @@ import { useTheme } from '@mui/material/styles';
 import  { useFluxControllerAvailableCheck, useFluxInstallCheck } from '../checkflux';
 import Table from '../common/Table';
 import Flux404 from '../checkflux';
+import { FLUX_CRDS } from '../helpers';
 
 export function HelmReleases() {
   const isHelmReleasesControllerAvailable = useFluxControllerAvailableCheck({
@@ -45,7 +46,7 @@ export function HelmReleases() {
 
 function HelmReleasesListWrapper() {
   const [helmReleases] = K8s.ResourceClasses.CustomResourceDefinition.useGet(
-    'helmreleases.helm.toolkit.fluxcd.io'
+    FLUX_CRDS.HELMRELEASE
   );
 
   const helmReleaseResourceClass = React.useMemo(() => {

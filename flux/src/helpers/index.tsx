@@ -187,3 +187,117 @@ export function parseDuration(duration) {
 
   return totalMilliseconds;
 }
+
+// Constants
+export const FLUX_CRDS = {
+  KUSTOMIZE: 'kustomizations.kustomize.toolkit.fluxcd.io',
+  HELMRELEASE: 'helmreleases.helm.toolkit.fluxcd.io',
+  SOURCES: {
+    GIT: 'gitrepositories.source.toolkit.fluxcd.io',
+    HELM: 'helmrepositories.source.toolkit.fluxcd.io',
+    OCI: 'ocirepositories.source.toolkit.fluxcd.io',
+    BUCKET: 'buckets.source.toolkit.fluxcd.io'
+  }
+};
+
+// Pluralization helper
+export function getPlural(kind: string): string {
+  const specialCases: { [key: string]: string } = {
+    'Bucket': 'buckets',
+    'GitRepository': 'gitrepositories',
+    'HelmRelease': 'helmreleases',
+    'HelmRepository': 'helmrepositories',
+    'Kustomization': 'kustomizations',
+    'OCIRepository': 'ocirepositories',
+  };
+  
+  return specialCases[kind] || `${kind.toLowerCase()}s`;
+}
+
+// ID parsing helper
+export function parseID(id: string) {
+  const parts = id.split('_');
+  return {
+    namespace: parts[0] === '' ? undefined : parts[0],
+    name: parts[1],
+    group: parts[2],
+    kind: parts[3]
+  };
+}
+
+// Route helper
+export function getCustomResourceRoute(item: KubeObject) {
+  if (!item) return 'crd';
+  
+  const kind = item?.jsonData?.kind || item?.kind;
+  if (!kind) return 'crd';
+  
+  switch (kind) {
+    case 'Kustomization':
+      return 'kustomizations';
+    case 'HelmRelease':
+      return 'helmrelease';
+    case 'OCIRepository':
+    case 'GitRepository':
+    case 'HelmRepository':
+      return 'source';
+    case 'Bucket':
+      return 'bucket';
+    default:
+      return 'crd';
+  }
+}
+
+// Link preparation helper
+export function prepareCustomResourceLink(item: KubeObject) {
+  if (!item) return null;
+  
+  const route = getCustomResourceRoute(item);
+  const kind = item?.jsonData?.kind || item?.kind;
+  const apiName = item?.jsonData?.apiName || '';
+    
+  if (!kind) return null;
+  
+  if (route === 'source') {
+    return (
+      <Link
+        routeName="source"
+        params={{
+          type: getPlural(kind),
+          name: item.metadata?.name,
+          namespace: item.metadata?.namespace
+        }}
+      >
+        {item.metadata?.name}
+      </Link>
+    );
+  }
+  
+  if (route === 'crd') {
+    return (
+      <Link
+        routeName="customresource"
+        params={{
+          crd: `${getPlural(kind)}.${apiName}`,
+          crName: item.metadata?.name,
+          namespace: item.metadata?.namespace,
+        }}
+      >
+        {item.metadata?.name}
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      routeName={route}
+      params={{
+        type: getPlural(kind),
+        name: item.metadata?.name,
+        namespace: item.metadata?.namespace || item.jsonData?.metadata?.namespace
+      }}
+    >
+      {item.metadata?.name}
+    </Link>
+  );
+}

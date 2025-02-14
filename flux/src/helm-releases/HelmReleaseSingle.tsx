@@ -21,8 +21,8 @@ import {
 } from '../actions/index';
 import RemainingTimeDisplay from '../common/RemainingTimeDisplay';
 import StatusLabel from '../common/StatusLabel';
-import { getSourceNameAndType, ObjectEvents } from '../helpers/index';
-import { GetResourcesFromInventory,HELMRELEASE_CRD } from '../inventory';
+import { getSourceNameAndType, ObjectEvents, FLUX_CRDS } from '../helpers';
+import { GetResourcesFromInventory } from '../inventory/index';
 
 function GetSourceCR(props: {
   name: string;
@@ -63,7 +63,7 @@ export default function FluxHelmReleaseDetailView() {
     namespace,
     fieldSelector: `involvedObject.name=${name},involvedObject.kind=${'HelmRelease'}`,
   });
-  const [resource] = K8s.ResourceClasses.CustomResourceDefinition.useGet(HELMRELEASE_CRD);
+  const [resource] = K8s.ResourceClasses.CustomResourceDefinition.useGet(FLUX_CRDS.HELMRELEASE);
 
   return (
     <>
