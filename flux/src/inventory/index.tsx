@@ -5,10 +5,8 @@ import React from 'react';
 import Table from '../common/Table';
 import { 
   parseID, 
-  prepareCustomResourceLink, 
   prepareNameLink,
-  getPlural,
-  FLUX_CRDS 
+  kindToSourceType
 } from '../helpers';
 
 // CRD cache for performance
@@ -21,7 +19,7 @@ function getCRDForGroupKind(group: string, kind: string, callback: (crd: any) =>
     return;
   }
 
-  const crdName = `${getPlural(kind)}.${group}`;
+  const crdName = `${kindToSourceType[kind] || `${kind.toLowerCase()}s`}.${group}`;
   K8s.ResourceClasses.CustomResourceDefinition.apiGet(
     (crd) => {
       if (crd) {
@@ -118,10 +116,7 @@ export function GetResourcesFromInventory({ inventory }: {
         {
           header: 'Name',
           accessorKey: 'metadata.name',
-          Cell: ({ row: { original: item } }) => 
-            K8s.ResourceClasses[item.kind]
-              ? prepareNameLink(item)
-              : prepareCustomResourceLink(item)
+          Cell: ({ row: { original: item } }) => prepareNameLink(item)
         },
         {
           header: 'Namespace',

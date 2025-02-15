@@ -9,35 +9,47 @@ import { KubeObject } from '@kinvolk/headlamp-plugin/lib/lib/k8s/cluster';
 import { localeDate, timeAgo } from '@kinvolk/headlamp-plugin/lib/Utils';
 import Table from '../common/Table';
 
-const kindToSourceType = {
+export const kindToSourceType = {
   GitRepository: 'gitrepositories',
   OCIRepository: 'ocirepositories',
   Bucket: 'buckets',
   HelmRepository: 'helmrepositories',
   HelmChart: 'helmcharts',
+  Kustomization: 'kustomizations',
+  HelmRelease: 'helmreleases'
 };
 
 export function getSourceNameAndType(item: KubeObject) {
-  const itemKind = item.jsonData.kind;
+  if (!item) return { name: '', type: '', route: 'crd' };
+  
+  const itemKind = item?.jsonData?.kind || item?.kind;
+  if (!itemKind) return { name: '', type: '', route: 'crd' };
+
   let type = '';
   let name = '';
+  let route = 'crd';
 
   if (itemKind === 'Kustomization') {
-    type = kindToSourceType[item.jsonData.spec.sourceRef.kind] ?? '';
-    name = item.jsonData.spec?.sourceRef?.name;
+    const sourceRef = item?.jsonData?.spec?.sourceRef || item?.spec?.sourceRef;
+    type = kindToSourceType[sourceRef?.kind] ?? '';
+    name = sourceRef?.name ?? '';
+    route = 'kustomizations';
   } else if (itemKind === 'HelmRelease') {
-    const refToCheck =
-      item?.jsonData?.spec?.chartRef ?? item?.jsonData?.spec?.chart?.spec?.sourceRef;
+    const spec = item?.jsonData?.spec || item?.spec;
+    const refToCheck = spec?.chartRef ?? spec?.chart?.spec?.sourceRef;
     if (refToCheck) {
       type = kindToSourceType[refToCheck.kind] ?? '';
       name = refToCheck.name;
     }
+    route = 'helmrelease';
   } else {
     type = kindToSourceType[itemKind] ?? '';
-    name = item.metadata.name;
+    name = item?.metadata?.name ?? '';
+    route = itemKind === 'Bucket' ? 'bucket' : 
+           type ? 'source' : 'crd';
   }
 
-  return { name, type };
+  return { name, type, route };
 }
 
 export function ObjectEvents(props: { events: any }) {
@@ -131,26 +143,11 @@ export function ObjectEvents(props: { events: any }) {
   );
 }
 
-export function prepareNameLink(item) {
-  const kind = item.kind;
-  if (kind === 'Kustomization' || kind === 'HelmRelease' || kind in kindToSourceType) {
-    const { name, type } = getSourceNameAndType(item);
-    if (!!name && !!type) {
-      return (
-        <Link
-          routeName={`/flux/sources/:type/:namespace/:name`}
-          params={{
-            name: item.metadata.name,
-            namespace: item.metadata.namespace,
-            type,
-          }}
-        >
-          {name}
-        </Link>
-      );
-    }
-  }
+export function prepareNameLink(item: KubeObject) {
+  if (!item) return null;
 
+  // Handle standard k8s resources first
+  const kind = item?.jsonData?.kind || item?.kind;
   const resourceKind = K8s.ResourceClasses[kind];
   if (resourceKind) {
     const resource = new resourceKind(item);
@@ -160,7 +157,36 @@ export function prepareNameLink(item) {
     return item.metadata.name;
   }
 
-  return item.metadata.name;
+  // Handle Flux and other custom resources
+  const { type, route, name } = getSourceNameAndType(item);
+  
+  if (route === 'crd') {
+    return (
+      <Link
+        routeName="customresource"
+        params={{
+          crd: `${type || `${kind.toLowerCase()}s`}.${item?.jsonData?.apiName || ''}`,
+          crName: item.metadata?.name,
+          namespace: item.metadata?.namespace,
+        }}
+      >
+        {item.metadata?.name}
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      routeName={route}
+      params={{
+        type: type || `${kind.toLowerCase()}s`,
+        name: item.metadata?.name,
+        namespace: item.metadata?.namespace || item.jsonData?.metadata?.namespace
+      }}
+    >
+      {name || item.metadata?.name}
+    </Link>
+  );
 }
 
 export function parseDuration(duration) {
@@ -200,20 +226,6 @@ export const FLUX_CRDS = {
   }
 };
 
-// Pluralization helper
-export function getPlural(kind: string): string {
-  const specialCases: { [key: string]: string } = {
-    'Bucket': 'buckets',
-    'GitRepository': 'gitrepositories',
-    'HelmRelease': 'helmreleases',
-    'HelmRepository': 'helmrepositories',
-    'Kustomization': 'kustomizations',
-    'OCIRepository': 'ocirepositories',
-  };
-  
-  return specialCases[kind] || `${kind.toLowerCase()}s`;
-}
-
 // ID parsing helper
 export function parseID(id: string) {
   const parts = id.split('_');
@@ -223,81 +235,4 @@ export function parseID(id: string) {
     group: parts[2],
     kind: parts[3]
   };
-}
-
-// Route helper
-export function getCustomResourceRoute(item: KubeObject) {
-  if (!item) return 'crd';
-  
-  const kind = item?.jsonData?.kind || item?.kind;
-  if (!kind) return 'crd';
-  
-  switch (kind) {
-    case 'Kustomization':
-      return 'kustomizations';
-    case 'HelmRelease':
-      return 'helmrelease';
-    case 'OCIRepository':
-    case 'GitRepository':
-    case 'HelmRepository':
-      return 'source';
-    case 'Bucket':
-      return 'bucket';
-    default:
-      return 'crd';
-  }
-}
-
-// Link preparation helper
-export function prepareCustomResourceLink(item: KubeObject) {
-  if (!item) return null;
-  
-  const route = getCustomResourceRoute(item);
-  const kind = item?.jsonData?.kind || item?.kind;
-  const apiName = item?.jsonData?.apiName || '';
-    
-  if (!kind) return null;
-  
-  if (route === 'source') {
-    return (
-      <Link
-        routeName="source"
-        params={{
-          type: getPlural(kind),
-          name: item.metadata?.name,
-          namespace: item.metadata?.namespace
-        }}
-      >
-        {item.metadata?.name}
-      </Link>
-    );
-  }
-  
-  if (route === 'crd') {
-    return (
-      <Link
-        routeName="customresource"
-        params={{
-          crd: `${getPlural(kind)}.${apiName}`,
-          crName: item.metadata?.name,
-          namespace: item.metadata?.namespace,
-        }}
-      >
-        {item.metadata?.name}
-      </Link>
-    );
-  }
-
-  return (
-    <Link
-      routeName={route}
-      params={{
-        type: getPlural(kind),
-        name: item.metadata?.name,
-        namespace: item.metadata?.namespace || item.jsonData?.metadata?.namespace
-      }}
-    >
-      {item.metadata?.name}
-    </Link>
-  );
 }
